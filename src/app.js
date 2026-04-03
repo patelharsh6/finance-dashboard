@@ -57,4 +57,10 @@ app.use((err, req, res, next) => {
 })
 
 const PORT = process.env.PORT || 5000
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+
+// only start listening if this file is run directly, not when imported in tests
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+}
+
+module.exports = app
