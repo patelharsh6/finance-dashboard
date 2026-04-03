@@ -33,6 +33,24 @@ app.use((req, res) => {
 // global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack)
+
+  // mongoose bad ObjectId
+  if (err.name === 'CastError') {
+    return res.status(400).json({ message: 'Invalid ID format' })
+  }
+
+  // mongoose duplicate key (eg. email already exists)
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0]
+    return res.status(409).json({ message: `${field} already in use` })
+  }
+
+  // mongoose validation errors (schema level)
+  if (err.name === 'ValidationError') {
+    const messages = Object.values(err.errors).map(e => e.message)
+    return res.status(400).json({ message: messages[0] })
+  }
+
   res.status(err.status || 500).json({
     message: err.message || 'Something went wrong'
   })

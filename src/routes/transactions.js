@@ -8,14 +8,15 @@ const {
 } = require('../controllers/transactionController')
 const { protect } = require('../middleware/auth')
 const { requireLevel, allowRoles } = require('../middleware/roles')
+const validate = require('../middleware/validate')
+const { createRules, updateRules, filterRules, mongoIdRule } = require('../validators/transactionValidators')
 
-// all routes require authentication
 router.use(protect)
 
-router.get('/', requireLevel('viewer'), getTransactions)            // viewer, analyst, admin
-router.get('/:id', requireLevel('viewer'), getTransactionById)     // viewer, analyst, admin
-router.post('/', requireLevel('analyst'), createTransaction)       // analyst, admin only
-router.put('/:id', requireLevel('analyst'), updateTransaction)     // analyst, admin only
-router.delete('/:id', allowRoles('admin'), deleteTransaction)      // admin only
+router.get('/', requireLevel('viewer'), filterRules, validate, getTransactions)
+router.get('/:id', requireLevel('viewer'), mongoIdRule, validate, getTransactionById)
+router.post('/', requireLevel('analyst'), createRules, validate, createTransaction)
+router.put('/:id', requireLevel('analyst'), [...mongoIdRule, ...updateRules], validate, updateTransaction)
+router.delete('/:id', allowRoles('admin'), mongoIdRule, validate, deleteTransaction)
 
 module.exports = router
