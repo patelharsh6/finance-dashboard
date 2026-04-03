@@ -8,7 +8,12 @@ const app = express()
 
 connectDB()
 
-
+// basic rate limiting — 100 requests per 15 minutes
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { message: 'Too many requests, slow down' }
+})
 
 app.use(cors())
 app.use(express.json())
