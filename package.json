@@ -1,0 +1,34 @@
+{
+  "name": "finance-dashboard",
+  "version": "1.0.0",
+  "description": "Finance dashboard backend with role based access control",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/patelharsh6/finance-dashboard.git"
+  },
+  "keywords": [],
+  "author": "Harshkumar Patel",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/patelharsh6/finance-dashboard/issues"
+  },
+  "homepage": "https://github.com/patelharsh6/finance-dashboard#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.2",
+    "express-validator": "^7.3.2",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.3.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
