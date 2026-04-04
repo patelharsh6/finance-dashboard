@@ -3,14 +3,17 @@ const { MongoMemoryServer } = require('mongodb-memory-server')
 
 let mongoServer
 
-// spin up an in-memory mongo before all tests
 beforeAll(async () => {
+  // disconnect from any existing connection first (real DB from .env)
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect()
+  }
+
   mongoServer = await MongoMemoryServer.create()
   const uri = mongoServer.getUri()
   await mongoose.connect(uri)
 })
 
-// wipe collections between tests so they don't bleed into each other
 afterEach(async () => {
   const collections = mongoose.connection.collections
   for (const key in collections) {
