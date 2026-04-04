@@ -77,7 +77,7 @@ const softDeleteTransaction = async (id) => {
   const tx = await Transaction.findOneAndUpdate(
     { _id: id, isDeleted: false },
     { isDeleted: true },
-    { new: true }
+    { returnDocument: 'after' }
   )
 
   if (!tx) {

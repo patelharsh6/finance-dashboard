@@ -3,6 +3,10 @@ const { MongoMemoryServer } = require('mongodb-memory-server')
 
 let mongoServer
 
+beforeAll(() => {
+  jest.spyOn(console, 'error').mockImplementation(() => {})
+})
+
 beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create()
   await mongoose.connect(mongoServer.getUri())
