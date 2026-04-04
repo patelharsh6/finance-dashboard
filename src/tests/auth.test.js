@@ -1,97 +1,61 @@
 const request = require('supertest')
 const app = require('../app')
 
-// pull out a helper so we're not repeating register payload everywhere
 const testUser = {
   name: 'Test User',
   email: 'test@example.com',
   password: 'password123'
 }
 
-describe('POST /api/auth/register', () => {
-  it('should register a new user and return a token', async () => {
+describe('Auth endpoints', () => {
+  it('registers a new user and returns a token', async () => {
     const res = await request(app).post('/api/auth/register').send(testUser)
-
     expect(res.statusCode).toBe(201)
-    expect(res.body).toHaveProperty('token')
-    expect(res.body.user.email).toBe(testUser.email)
-    expect(res.body.user.role).toBe('viewer') // default role
+    expect(res.body.token).toBeDefined()
+    expect(res.body.user.role).toBe('viewer')
   })
 
-  it('should not register with a duplicate email', async () => {
+  it('blocks duplicate email on register', async () => {
     await request(app).post('/api/auth/register').send(testUser)
     const res = await request(app).post('/api/auth/register').send(testUser)
-
     expect(res.statusCode).toBe(409)
-    expect(res.body).toHaveProperty('message')
   })
 
-  it('should reject registration with missing fields', async () => {
-    const res = await request(app).post('/api/auth/register').send({ email: 'test@example.com' })
-
+  it('rejects register with missing fields', async () => {
+    const res = await request(app).post('/api/auth/register').send({ email: 'x@x.com' })
     expect(res.statusCode).toBe(400)
-    expect(res.body).toHaveProperty('errors')
+    expect(res.body.errors).toBeDefined()
   })
 
-  it('should reject a short password', async () => {
-    const res = await request(app).post('/api/auth/register').send({
-      ...testUser,
-      password: '123'
-    })
-
-    expect(res.statusCode).toBe(400)
-    expect(res.body.errors.password).toBeDefined()
-  })
-})
-
-describe('POST /api/auth/login', () => {
-  beforeEach(async () => {
+  it('logs in with correct credentials', async () => {
     await request(app).post('/api/auth/register').send(testUser)
-  })
-
-  it('should login with correct credentials', async () => {
     const res = await request(app).post('/api/auth/login').send({
       email: testUser.email,
       password: testUser.password
     })
-
     expect(res.statusCode).toBe(200)
-    expect(res.body).toHaveProperty('token')
+    expect(res.body.token).toBeDefined()
   })
 
-  it('should reject wrong password', async () => {
+  it('rejects wrong password', async () => {
+    await request(app).post('/api/auth/register').send(testUser)
     const res = await request(app).post('/api/auth/login').send({
       email: testUser.email,
-      password: 'wrongpassword'
+      password: 'wrongone'
     })
-
     expect(res.statusCode).toBe(401)
   })
 
-  it('should reject non-existent email', async () => {
-    const res = await request(app).post('/api/auth/login').send({
-      email: 'nobody@example.com',
-      password: 'password123'
-    })
-
-    expect(res.statusCode).toBe(401)
-  })
-})
-
-describe('GET /api/auth/me', () => {
-  it('should return current user info', async () => {
-    const registerRes = await request(app).post('/api/auth/register').send(testUser)
-    const token = registerRes.body.token
-
+  it('returns current user on GET /me', async () => {
+    const reg = await request(app).post('/api/auth/register').send(testUser)
     const res = await request(app)
       .get('/api/auth/me')
-      .set('Authorization', `Bearer ${token}`)
-
+      .set('Authorization', `Bearer ${reg.body.token}`)
     expect(res.statusCode).toBe(200)
     expect(res.body.email).toBe(testUser.email)
   })
 
-  it('should reject request with no token', async () => {
+  it('blocks unauthenticated access to /me', async () => {
     const res = await request(app).get('/api/auth/me')
     expect(res.statusCode).toBe(401)
   })

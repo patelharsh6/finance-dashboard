@@ -44,10 +44,10 @@ const updateUserRole = async (targetId, requesterId, newRole) => {
   }
 
   const user = await User.findByIdAndUpdate(
-    targetId,
-    { role: newRole },
-    { new: true, runValidators: true }
-  ).select('-__v')
+  targetId,
+  { role: newRole },
+  { returnDocument: 'after', runValidators: true }
+).select('-__v')
 
   if (!user) {
     const err = new Error('User not found')

@@ -43,9 +43,8 @@ const transactionSchema = new mongoose.Schema(
 )
 
 // whenever we fetch transactions, skip soft deleted ones by default
-transactionSchema.pre(/^find/, function (next) {
+transactionSchema.pre(/^find/, function () {
   this.where({ isDeleted: false })
-  next()
 })
 
 module.exports = mongoose.model('Transaction', transactionSchema)

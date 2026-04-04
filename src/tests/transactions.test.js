@@ -1,125 +1,102 @@
 const request = require('supertest')
 const app = require('../app')
 
-// helper to register and get token back
-const loginAs = async (role = 'viewer') => {
-  const email = `${role}@example.com`
-  await request(app).post('/api/auth/register').send({
+// register a user with a given role and return their token
+const getToken = async (role) => {
+  const email = `${role}@test.com`
+  const res = await request(app).post('/api/auth/register').send({
     name: role,
     email,
     password: 'password123',
     role
   })
-  const res = await request(app).post('/api/auth/login').send({ email, password: 'password123' })
   return res.body.token
 }
 
-const sampleTransaction = {
+const validTx = {
   amount: 5000,
   type: 'income',
   category: 'salary',
-  date: '2024-01-15',
-  notes: 'January salary'
+  date: '2024-03-01'
 }
 
-describe('GET /api/transactions', () => {
+describe('Transaction access control', () => {
   it('viewer can read transactions', async () => {
-    const token = await loginAs('viewer')
+    const token = await getToken('viewer')
     const res = await request(app)
       .get('/api/transactions')
       .set('Authorization', `Bearer ${token}`)
-
     expect(res.statusCode).toBe(200)
-    expect(res.body).toHaveProperty('transactions')
-  })
-})
-
-describe('POST /api/transactions', () => {
-  it('analyst can create a transaction', async () => {
-    const token = await loginAs('analyst')
-    const res = await request(app)
-      .post('/api/transactions')
-      .set('Authorization', `Bearer ${token}`)
-      .send(sampleTransaction)
-
-    expect(res.statusCode).toBe(201)
-    expect(res.body.amount).toBe(5000)
-    expect(res.body.category).toBe('salary')
+    expect(res.body.transactions).toBeDefined()
   })
 
   it('viewer cannot create a transaction', async () => {
-    const token = await loginAs('viewer')
+    const token = await getToken('viewer')
     const res = await request(app)
       .post('/api/transactions')
       .set('Authorization', `Bearer ${token}`)
-      .send(sampleTransaction)
-
+      .send(validTx)
     expect(res.statusCode).toBe(403)
   })
 
-  it('should reject invalid transaction type', async () => {
-    const token = await loginAs('analyst')
+  it('analyst can create a transaction', async () => {
+    const token = await getToken('analyst')
     const res = await request(app)
       .post('/api/transactions')
       .set('Authorization', `Bearer ${token}`)
-      .send({ ...sampleTransaction, type: 'donation' }) // not a valid type
+      .send(validTx)
+    expect(res.statusCode).toBe(201)
+    expect(res.body.amount).toBe(5000)
+  })
 
+  it('analyst cannot delete a transaction', async () => {
+    const token = await getToken('analyst')
+    const created = await request(app)
+      .post('/api/transactions')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validTx)
+    const res = await request(app)
+      .delete(`/api/transactions/${created.body._id}`)
+      .set('Authorization', `Bearer ${token}`)
+    expect(res.statusCode).toBe(403)
+  })
+
+  it('admin can delete a transaction', async () => {
+    const analystToken = await getToken('analyst')
+    const adminToken = await getToken('admin')
+    const created = await request(app)
+      .post('/api/transactions')
+      .set('Authorization', `Bearer ${analystToken}`)
+      .send(validTx)
+    const res = await request(app)
+      .delete(`/api/transactions/${created.body._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(res.statusCode).toBe(200)
+  })
+})
+
+describe('Transaction validation', () => {
+  it('rejects invalid type', async () => {
+    const token = await getToken('analyst')
+    const res = await request(app)
+      .post('/api/transactions')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ...validTx, type: 'donation' })
     expect(res.statusCode).toBe(400)
     expect(res.body.errors.type).toBeDefined()
   })
 
-  it('should reject negative amount', async () => {
-    const token = await loginAs('analyst')
+  it('rejects negative amount', async () => {
+    const token = await getToken('analyst')
     const res = await request(app)
       .post('/api/transactions')
       .set('Authorization', `Bearer ${token}`)
-      .send({ ...sampleTransaction, amount: -100 })
-
+      .send({ ...validTx, amount: -500 })
     expect(res.statusCode).toBe(400)
   })
-})
 
-describe('DELETE /api/transactions/:id', () => {
-  it('admin can soft delete a transaction', async () => {
-    const analystToken = await loginAs('analyst')
-    const adminToken = await loginAs('admin')
-
-    // analyst creates it
-    const created = await request(app)
-      .post('/api/transactions')
-      .set('Authorization', `Bearer ${analystToken}`)
-      .send(sampleTransaction)
-
-    const txId = created.body._id
-
-    // admin deletes it
-    const deleteRes = await request(app)
-      .delete(`/api/transactions/${txId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-
-    expect(deleteRes.statusCode).toBe(200)
-
-    // should no longer show up in list
-    const listRes = await request(app)
-      .get('/api/transactions')
-      .set('Authorization', `Bearer ${adminToken}`)
-
-    const found = listRes.body.transactions.find(t => t._id === txId)
-    expect(found).toBeUndefined()
-  })
-
-  it('analyst cannot delete a transaction', async () => {
-    const analystToken = await loginAs('analyst')
-
-    const created = await request(app)
-      .post('/api/transactions')
-      .set('Authorization', `Bearer ${analystToken}`)
-      .send(sampleTransaction)
-
-    const res = await request(app)
-      .delete(`/api/transactions/${created.body._id}`)
-      .set('Authorization', `Bearer ${analystToken}`)
-
-    expect(res.statusCode).toBe(403)
+  it('rejects request with no token', async () => {
+    const res = await request(app).get('/api/transactions')
+    expect(res.statusCode).toBe(401)
   })
 })

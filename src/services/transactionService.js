@@ -59,9 +59,9 @@ const updateTransaction = async (id, data) => {
   const { createdBy, isDeleted, ...safeData } = data
 
   const tx = await Transaction.findByIdAndUpdate(id, safeData, {
-    new: true,
-    runValidators: true
-  })
+  returnDocument: 'after',
+  runValidators: true
+})
 
   if (!tx) {
     const err = new Error('Transaction not found')
