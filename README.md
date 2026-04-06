@@ -20,11 +20,11 @@ A backend REST API for a finance dashboard with role-based access control. Built
 ### Prerequisites
 
 - Node.js v18+
-- MongoDB running locally (or a MongoDB Atlas URI)
+- MongoDB Atlas URI
 
 ### Setup
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/patelharsh6/finance-dashboard.git
 cd finance-dashboard
 npm install
 ```
@@ -37,8 +37,8 @@ cp .env.example .env
 ### Environment Variables
 ```
 PORT=5000
-MONGO_URI=mongodb://localhost:27017/finance-dashboard
-JWT_SECRET=your_jwt_secret_key
+MONGO_URI="mongodb+srv://FinanceDashboard:FinanceDashboard123@harsh.stcszdk.mongodb.net/?appName=harsh"
+JWT_SECRET=somereallylongsecretkey123
 JWT_EXPIRES_IN=7d
 ```
 
@@ -198,21 +198,60 @@ Role hierarchy is enforced at the middleware level before any handler runs. A vi
 
 ## Project Structure
 ```
-src/
-├── config/
-│   └── db.js                  # mongoose connection
-├── middleware/
-│   ├── auth.js                # JWT verification, attaches req.user
-│   └── roles.js               # allowRoles() and requireLevel() guards
-├── models/
-│   ├── User.js
-│   └── Transaction.js
-├── controllers/               # handle req/res only
-├── services/                  # business logic and DB calls
-├── routes/                    # URL mapping
-├── validators/                # express-validator rule sets
-├── tests/
-└── app.js
+finance-dashboard/
+├── src/
+│   ├── config/
+│   │   └── db.js                     # MongoDB connection setup (Mongoose)
+│   │
+│   ├── controllers/                 # Handle request & response logic
+│   │   ├── authController.js
+│   │   ├── dashboardController.js
+│   │   ├── transactionController.js
+│   │   └── userController.js
+│   │
+│   ├── middleware/                  # Custom middlewares
+│   │   ├── auth.js                  # JWT authentication
+│   │   ├── roles.js                 # Role-based access control
+│   │   └── validate.js              # Request validation handler
+│   │
+│   ├── models/                      # Mongoose schemas
+│   │   ├── User.js
+│   │   └── Transaction.js
+│   │
+│   ├── routes/                      # API route definitions
+│   │   ├── auth.js
+│   │   ├── dashboard.js
+│   │   ├── transactions.js
+│   │   └── users.js
+│   │
+│   ├── services/                    # Business logic layer
+│   │   ├── authService.js
+│   │   ├── dashboardService.js
+│   │   ├── transactionService.js
+│   │   └── userService.js
+│   │
+│   ├── validators/                  # express-validator rules
+│   │   ├── authValidators.js
+│   │   ├── transactionValidators.js
+│   │   └── userValidators.js
+│   │
+│   ├── scripts/
+│   │   └── seed.js                  # Seed database with initial data
+│   │
+│   ├── tests/                       # Unit & integration tests
+│   │   ├── auth.test.js
+│   │   ├── transactions.test.js
+│   │   ├── users.test.js
+│   │   └── setup.js
+│   │
+│   └── app.js                       # Express app setup
+│
+├── .env                             # Environment variables
+├── .env.example                     # Sample env file
+├── .gitignore
+├── package.json
+├── package-lock.json
+└── README.md
 ```
 
 ---
