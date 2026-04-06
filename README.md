@@ -288,3 +288,358 @@ If either check fails, the request is rejected before any handler or DB call run
 - **No ownership checks on transactions** — any analyst can update any transaction right now. In a real system you'd probably want creators to only edit their own records unless they're admin.
 - **In-memory rate limiting** — `express-rate-limit` stores counts in memory, so it resets on server restart and doesn't work across multiple instances. Redis would be the proper fix.
 - **Test coverage** — covers the main paths but doesn't test every edge case. Would add more coverage around filters and dashboard aggregations with more time.
+
+## API Endpoints
+
+All protected routes require the `Authorization: Bearer <token>` header.
+
+---
+
+### Auth
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| POST | `/api/auth/register` | No | Register a new user |
+| POST | `/api/auth/login` | No | Login and receive a JWT token |
+| GET | `/api/auth/me` | Yes | Get currently logged in user's profile |
+
+**POST `/api/auth/register`**
+```json
+// request body
+{
+  "name": "Jay Shah",
+  "email": "jay@example.com",
+  "password": "password123",
+  "role": "viewer"   // optional — viewer, analyst, admin (defaults to viewer)
+}
+
+// response 201
+{
+  "token": "eyJhbGci...",
+  "user": {
+    "id": "64f1a...",
+    "name": "Jay Shah",
+    "email": "jay@example.com",
+    "role": "viewer",
+    "isActive": true
+  }
+}
+```
+
+**POST `/api/auth/login`**
+```json
+// request body
+{
+  "email": "jay@example.com",
+  "password": "password123"
+}
+
+// response 200
+{
+  "token": "eyJhbGci...",
+  "user": {
+    "id": "64f1a...",
+    "name": "Jay Shah",
+    "email": "jay@example.com",
+    "role": "viewer",
+    "isActive": true
+  }
+}
+```
+
+**GET `/api/auth/me`**
+```json
+// response 200
+{
+  "id": "64f1a...",
+  "name": "Jay Shah",
+  "email": "jay@example.com",
+  "role": "viewer",
+  "isActive": true,
+  "createdAt": "2024-03-01T10:00:00.000Z"
+}
+```
+
+---
+
+### Users — admin only
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/api/users` | Admin | List all users in the system |
+| PATCH | `/api/users/:id/role` | Admin | Change a user's role |
+| PATCH | `/api/users/:id/toggle-active` | Admin | Activate or deactivate a user account |
+
+**GET `/api/users`**
+```json
+// response 200
+{
+  "count": 3,
+  "users": [
+    {
+      "_id": "64f1a...",
+      "name": "Jay Shah",
+      "email": "jay@example.com",
+      "role": "viewer",
+      "isActive": true,
+      "createdAt": "2024-03-01T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+**PATCH `/api/users/:id/role`**
+```json
+// request body
+{
+  "role": "analyst"   // viewer, analyst, or admin
+}
+
+// response 200
+{
+  "message": "Role updated",
+  "user": {
+    "_id": "64f1a...",
+    "name": "Jay Shah",
+    "email": "jay@example.com",
+    "role": "analyst",
+    "isActive": true
+  }
+}
+```
+
+**PATCH `/api/users/:id/toggle-active`**
+```json
+// no request body needed
+
+// response 200
+{
+  "message": "User deactivated",   // or "User activated"
+  "user": {
+    "id": "64f1a...",
+    "name": "Jay Shah",
+    "email": "jay@example.com",
+    "isActive": false
+  }
+}
+```
+
+---
+
+### Transactions
+
+| Method | Endpoint | Min Role | Description |
+|---|---|---|---|
+| GET | `/api/transactions` | Viewer | List all transactions — supports filters and pagination |
+| GET | `/api/transactions/:id` | Viewer | Get a single transaction by ID |
+| POST | `/api/transactions` | Analyst | Create a new transaction |
+| PUT | `/api/transactions/:id` | Analyst | Update an existing transaction |
+| DELETE | `/api/transactions/:id` | Admin | Soft delete a transaction |
+
+**GET `/api/transactions` — query params**
+```
+// filter by type
+/api/transactions?type=income
+/api/transactions?type=expense
+
+// filter by category (case insensitive partial match)
+/api/transactions?category=salary
+
+// filter by date range
+/api/transactions?startDate=2024-01-01&endDate=2024-06-30
+
+// pagination
+/api/transactions?page=1&limit=10
+
+// sorting
+/api/transactions?sortBy=amount&order=asc
+/api/transactions?sortBy=date&order=desc
+
+// combine filters
+/api/transactions?type=income&category=salary&page=1&limit=5
+```
+```json
+// response 200
+{
+  "total": 40,
+  "page": 1,
+  "totalPages": 4,
+  "transactions": [
+    {
+      "_id": "64f2b...",
+      "amount": 5000,
+      "type": "income",
+      "category": "salary",
+      "date": "2024-03-01T00:00:00.000Z",
+      "notes": "March salary",
+      "createdBy": {
+        "_id": "64f1a...",
+        "name": "Jay Shah",
+        "email": "jay@example.com"
+      },
+      "createdAt": "2024-03-01T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+**POST `/api/transactions`**
+```json
+// request body
+{
+  "amount": 5000,          // required — must be positive
+  "type": "income",        // required — income or expense
+  "category": "salary",   // required — free text
+  "date": "2024-03-01",   // optional — defaults to today
+  "notes": "March salary" // optional — max 300 characters
+}
+
+// response 201
+{
+  "_id": "64f2b...",
+  "amount": 5000,
+  "type": "income",
+  "category": "salary",
+  "date": "2024-03-01T00:00:00.000Z",
+  "notes": "March salary",
+  "createdBy": "64f1a...",
+  "isDeleted": false,
+  "createdAt": "2024-03-01T10:00:00.000Z"
+}
+```
+
+**PUT `/api/transactions/:id`**
+```json
+// request body — all fields optional, only send what you want to update
+{
+  "amount": 6000,
+  "notes": "Updated salary"
+}
+
+// response 200 — returns the updated transaction
+{
+  "_id": "64f2b...",
+  "amount": 6000,
+  "type": "income",
+  "category": "salary",
+  "notes": "Updated salary"
+}
+```
+
+**DELETE `/api/transactions/:id`**
+```json
+// no request body needed
+// record is soft deleted — stays in DB but filtered from all queries
+
+// response 200
+{
+  "message": "Transaction deleted successfully"
+}
+```
+
+---
+
+### Dashboard — analyst and admin only
+
+| Method | Endpoint | Min Role | Description |
+|---|---|---|---|
+| GET | `/api/dashboard/summary` | Analyst | Total income, expenses, and net balance |
+| GET | `/api/dashboard/categories` | Analyst | Transaction totals grouped by category |
+| GET | `/api/dashboard/trends` | Analyst | Monthly income vs expense breakdown |
+| GET | `/api/dashboard/recent` | Analyst | Most recently added transactions |
+
+**GET `/api/dashboard/summary`**
+```json
+// response 200
+{
+  "income": 85000,
+  "expense": 32000,
+  "netBalance": 53000,
+  "incomeCount": 18,
+  "expenseCount": 12
+}
+```
+
+**GET `/api/dashboard/categories`**
+```
+// optional filter by type
+/api/dashboard/categories?type=expense
+```
+```json
+// response 200
+[
+  { "category": "salary", "total": 60000, "count": 12, "type": "income" },
+  { "category": "rent", "total": 18000, "count": 6, "type": "expense" },
+  { "category": "food", "total": 8000, "count": 20, "type": "expense" }
+]
+```
+
+**GET `/api/dashboard/trends`**
+```
+// filter by year — defaults to current year
+/api/dashboard/trends?year=2024
+```
+```json
+// response 200
+[
+  { "month": 1, "type": "income", "total": 15000 },
+  { "month": 1, "type": "expense", "total": 6000 },
+  { "month": 2, "type": "income", "total": 12000 },
+  { "month": 2, "type": "expense", "total": 4500 }
+]
+```
+
+**GET `/api/dashboard/recent`**
+```
+// optional limit — defaults to 10
+/api/dashboard/recent?limit=5
+```
+```json
+// response 200
+[
+  {
+    "_id": "64f2b...",
+    "amount": 5000,
+    "type": "income",
+    "category": "salary",
+    "date": "2024-03-01T00:00:00.000Z",
+    "notes": "March salary",
+    "createdBy": {
+      "_id": "64f1a...",
+      "name": "Jay Shah",
+      "email": "jay@example.com"
+    }
+  }
+]
+```
+
+---
+
+### Error responses
+
+All endpoints return errors in this format:
+```json
+// 400 — validation failed
+{
+  "message": "Validation failed",
+  "errors": {
+    "amount": "Amount must be a positive number",
+    "type": "Type must be income or expense"
+  }
+}
+
+// 401 — not authenticated
+{ "message": "Not authorized, no token" }
+
+// 403 — wrong role
+{ "message": "Access denied. You need at least analyst access to do this" }
+
+// 404 — not found
+{ "message": "Transaction not found" }
+
+// 409 — conflict
+{ "message": "email already in use" }
+
+// 500 — server error
+{ "message": "Something went wrong" }
+```
